@@ -1,0 +1,6 @@
+{
+  "name": "Vina Prelist",
+  "description": "Vina Prelist on-demand item sourcing, import pre-orders, store listings, and order tracking",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
