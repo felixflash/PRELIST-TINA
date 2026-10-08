@@ -34,7 +34,7 @@ import kotlinx.coroutines.launch
         MessageEntity::class,
         AuditLogEntity::class
     ],
-    version = 3,
+    version = 4,
     exportSchema = false
 )
 abstract class FinderKitDatabase : RoomDatabase() {

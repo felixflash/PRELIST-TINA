@@ -6,6 +6,13 @@ import androidx.room.PrimaryKey
 import java.security.MessageDigest
 import java.util.UUID
 
+object ShippingConfig {
+    const val AIR_METHOD = "air"
+    const val SEA_METHOD = "sea"
+    const val AIR_DAYS = 18
+    const val SEA_DAYS = 60
+}
+
 enum class UserRole {
     CUSTOMER,
     ADMIN
@@ -54,6 +61,10 @@ data class RequestEntity(
     val urgency: String = "",
     val imageUrl: String = "",
     val status: RequestStatus = RequestStatus.OPEN,
+    val shippingMethod: String = ShippingConfig.AIR_METHOD,
+    val transitDays: Int = ShippingConfig.AIR_DAYS,
+    val shippedAt: Long? = null,
+    val expectedDeliveryDate: Long? = null,
     val createdAt: Long = System.currentTimeMillis(),
     val updatedAt: Long = System.currentTimeMillis()
 )

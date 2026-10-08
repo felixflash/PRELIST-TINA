@@ -37,6 +37,10 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -69,6 +73,8 @@ fun RequestsScreen(
         return
     }
 
+    var shippingFilter by remember { mutableStateOf<String?>(null) }
+
     val filteredList = state.requests.filter { req ->
         val matchesSearch = state.searchQuery.isBlank() ||
                 req.title.contains(state.searchQuery, ignoreCase = true) ||
@@ -76,8 +82,10 @@ fun RequestsScreen(
                 req.category.contains(state.searchQuery, ignoreCase = true)
 
         val matchesStatus = state.statusFilter == null || req.status == state.statusFilter
+        
+        val matchesShipping = shippingFilter == null || req.shippingMethod.lowercase() == shippingFilter
 
-        matchesSearch && matchesStatus
+        matchesSearch && matchesStatus && matchesShipping
     }
 
     Scaffold(
@@ -158,6 +166,37 @@ fun RequestsScreen(
                             label = "${status.label} ($count)",
                             isSelected = state.statusFilter == status,
                             onClick = { viewModel.setStatusFilter(status) }
+                        )
+                    }
+                }
+
+                if (user.role == UserRole.ADMIN) {
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Text(
+                        text = "Filter by Shipping Method:",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        FilterChipItem(
+                            label = "All Methods",
+                            isSelected = shippingFilter == null,
+                            onClick = { shippingFilter = null }
+                        )
+                        FilterChipItem(
+                            label = "✈ Air Only",
+                            isSelected = shippingFilter == "air",
+                            onClick = { shippingFilter = "air" }
+                        )
+                        FilterChipItem(
+                            label = "🚢 Sea Only",
+                            isSelected = shippingFilter == "sea",
+                            onClick = { shippingFilter = "sea" }
                         )
                     }
                 }

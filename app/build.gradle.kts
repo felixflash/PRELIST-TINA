@@ -33,6 +33,8 @@ android {
     buildConfigField("String", "SUPABASE_KEY", "\"${envProps.getProperty("SUPABASE_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inpkb29meGVua3l3cGxzc2NmcXd3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk5NzgyNjQsImV4cCI6MjEwNTU1NDI2NH0.mf3PtqfXPv8WcgAj1b6Yh_CgyWedvrRyWT3sl1P6ApQ")}\"")
     buildConfigField("String", "GMAIL_SMTP_USER", "\"${envProps.getProperty("GMAIL_SMTP_USER", "")}\"")
     buildConfigField("String", "GMAIL_SMTP_PASSWORD", "\"${envProps.getProperty("GMAIL_SMTP_PASSWORD", "")}\"")
+    buildConfigField("String", "HUBTEL_CLIENT_ID", "\"${envProps.getProperty("HUBTEL_CLIENT_ID", "mock-hubtel-client-id")}\"")
+    buildConfigField("String", "HUBTEL_CLIENT_SECRET", "\"${envProps.getProperty("HUBTEL_CLIENT_SECRET", "mock-hubtel-client-secret")}\"")
   }
 
   signingConfigs {

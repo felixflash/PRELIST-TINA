@@ -125,9 +125,17 @@ object GmailSmtpClient {
 
             // 9. Email Body
             val emailContent = buildString {
+                val rfcDateFormat = java.text.SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss Z", java.util.Locale.US)
+                val dateHeader = rfcDateFormat.format(java.util.Date())
+                val messageIdHeader = "<${java.util.UUID.randomUUID()}@gmail.com>"
+
                 append("From: Vina Prelist <$smtpUser>\r\n")
-                append("To: <${recipientEmail.trim()}>\r\n")
+                append("To: ${recipientEmail.trim()}\r\n")
+                append("Reply-To: Vina Prelist <$smtpUser>\r\n")
                 append("Subject: Your Vina Prelist Verification Code: $verificationCode\r\n")
+                append("Date: $dateHeader\r\n")
+                append("Message-ID: $messageIdHeader\r\n")
+                append("Auto-Submitted: auto-generated\r\n")
                 append("Content-Type: text/html; charset=UTF-8\r\n")
                 append("MIME-Version: 1.0\r\n")
                 append("\r\n")

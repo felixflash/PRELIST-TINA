@@ -310,13 +310,15 @@ fun FinderKitApp() {
                 if (appState.isNewRequestDialogOpen) {
                     NewRequestDialog(
                         onDismiss = { finderKitViewModel.closeNewRequestDialog() },
-                        onSubmit = { title, desc, cat, qty, imgUrl ->
+                        onSubmit = { title, desc, cat, qty, imgUrl, shippingMethod, transitDays ->
                             finderKitViewModel.createRequest(
                                 title = title,
                                 description = desc,
                                 category = cat,
                                 quantity = qty,
-                                imageUrl = imgUrl
+                                imageUrl = imgUrl,
+                                shippingMethod = shippingMethod,
+                                transitDays = transitDays
                             )
                         },
                         isProcessing = appState.isProcessing
@@ -347,12 +349,13 @@ fun FinderKitApp() {
                         request = appState.selectedRequest!!,
                         batchDefault = defaultBatch,
                         onDismiss = { finderKitViewModel.closeShipOrderDialog() },
-                        onConfirmShipment = { batch, delivery, carrier ->
+                        onConfirmShipment = { batch, delivery, carrier, shippingDate ->
                             finderKitViewModel.markAsShipped(
                                 orderId = appState.selectedRequest!!.id,
                                 batchNumber = batch,
                                 estimatedDelivery = delivery,
-                                trackingCarrier = carrier
+                                trackingCarrier = carrier,
+                                shippingDate = shippingDate
                             )
                         },
                         isProcessing = appState.isProcessing
@@ -364,13 +367,14 @@ fun FinderKitApp() {
                         listing = appState.selectedListingForCheckout!!,
                         customerEmail = currentUser.email,
                         customerPhone = currentUser.phone,
-                        paystackAccessCode = appState.paystackAccessCode,
-                        isInitializingPaystack = appState.isInitializingPaystack,
+                        hubtelCheckoutUrl = appState.hubtelCheckoutUrl,
+                        isInitializingHubtel = appState.isInitializingHubtel,
                         onDismiss = { finderKitViewModel.closeCheckoutDialog() },
-                        onPaymentSuccess = { method ->
+                        onPaymentSuccess = { method, ref ->
                             finderKitViewModel.processPayment(
                                 listing = appState.selectedListingForCheckout!!,
-                                paymentMethod = method
+                                paymentMethod = method,
+                                paymentRef = ref
                             )
                         },
                         isProcessing = appState.isProcessing

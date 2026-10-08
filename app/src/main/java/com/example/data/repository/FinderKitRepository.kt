@@ -12,8 +12,6 @@ import com.example.data.model.SecurityUtils
 import com.example.data.model.StoreListingEntity
 import com.example.data.model.UserEntity
 import com.example.data.model.UserRole
-import com.example.data.network.PaystackClient
-import com.example.data.network.PaystackInitRequest
 import com.example.data.network.SupabaseStorageClient
 import kotlinx.coroutines.flow.Flow
 import java.util.UUID
@@ -94,7 +92,11 @@ class FinderKitRepository(
             role = UserRole.CUSTOMER
         )
 
-        userDao.insertUser(user)
+        try {
+            userDao.insertUser(user)
+        } catch (e: Exception) {
+            return Result.failure(IllegalStateException("An account with this email already exists."))
+        }
 
         auditLogDao.insertAuditLog(
             AuditLogEntity(
@@ -248,7 +250,9 @@ class FinderKitRepository(
         quantity: Int = 1,
         targetBudget: Double = 0.0,
         urgency: String = "",
-        imageUrl: String = ""
+        imageUrl: String = "",
+        shippingMethod: String = com.example.data.model.ShippingConfig.AIR_METHOD,
+        transitDays: Int = com.example.data.model.ShippingConfig.AIR_DAYS
     ): Result<RequestEntity> {
         if (title.isBlank()) return Result.failure(IllegalArgumentException("Title is required."))
         if (description.isBlank()) return Result.failure(IllegalArgumentException("Description is required."))
@@ -272,7 +276,9 @@ class FinderKitRepository(
             targetBudget = targetBudget,
             urgency = urgency,
             imageUrl = finalImageUrl.trim(),
-            status = RequestStatus.OPEN
+            status = RequestStatus.OPEN,
+            shippingMethod = shippingMethod,
+            transitDays = transitDays
         )
 
         requestDao.insertRequest(request)
@@ -380,7 +386,7 @@ class FinderKitRepository(
             price = price,
             quantity = quantity,
             batchNumber = batchNumber.trim(),
-            estimatedDelivery = estimatedDelivery.trim().ifBlank { "3-5 business days" },
+            estimatedDelivery = estimatedDelivery.trim(),
             conditionNotes = conditionNotes.trim().ifBlank { "Verified Authentic" },
             imageUrl = request.imageUrl,
             isPublished = true
@@ -389,13 +395,15 @@ class FinderKitRepository(
         storeListingDao.insertListing(listing)
         requestDao.updateRequestStatus(requestId, RequestStatus.AWAITING_PAYMENT)
 
+        val messageText = "Item listed in Store at GH₵ ${String.format("%.2f", price)}. Batch: ${listing.batchNumber}."
+
         messageDao.insertMessage(
             MessageEntity(
                 requestId = requestId,
                 senderId = actor.id,
                 senderName = actor.fullName,
                 senderRole = actor.role.name,
-                content = "Item listed in Store at GH₵ ${String.format("%.2f", price)}. Batch: ${listing.batchNumber}. Estimated Delivery: ${listing.estimatedDelivery}.",
+                content = messageText,
                 isSystemEvent = true
             )
         )
@@ -510,8 +518,12 @@ class FinderKitRepository(
         batchNumber: String,
         estimatedDelivery: String,
         trackingCarrier: String,
+        shippingDate: Long,
         actor: UserEntity
     ): Result<Unit> {
+        if (actor.role != UserRole.ADMIN) {
+            return Result.failure(SecurityException("Only Administrators can update shipping information."))
+        }
         val orders = orderDao.getAllOrders()
         // Find order
         val order = orderDao.getOrderByRequestId(orderId) ?: run {
@@ -528,15 +540,33 @@ class FinderKitRepository(
         val existingOrder = orderDao.getOrderByRequestId(finalRequestId)
             ?: return Result.failure(IllegalArgumentException("Order not found."))
 
+        val transitDays = request?.transitDays ?: 18
+        val computedExpectedDeliveryDate = shippingDate + (transitDays.toLong() * 24 * 60 * 60 * 1000)
+
+        val formatter = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault())
+        val formattedExpectedDeliveryDate = formatter.format(java.util.Date(computedExpectedDeliveryDate))
+
         val updatedOrder = existingOrder.copy(
             batchNumber = batchNumber.ifBlank { existingOrder.batchNumber },
-            estimatedDelivery = estimatedDelivery.ifBlank { existingOrder.estimatedDelivery },
+            estimatedDelivery = formattedExpectedDeliveryDate,
             trackingCarrier = trackingCarrier.ifBlank { "FinderKit Express Carrier" },
             status = RequestStatus.SHIPPED,
-            shippedAt = System.currentTimeMillis()
+            shippedAt = shippingDate
         )
         orderDao.updateOrder(updatedOrder)
-        requestDao.updateRequestStatus(finalRequestId, RequestStatus.SHIPPED)
+
+        if (request != null) {
+            requestDao.insertRequest(
+                request.copy(
+                    shippedAt = shippingDate,
+                    expectedDeliveryDate = computedExpectedDeliveryDate,
+                    status = RequestStatus.SHIPPED,
+                    updatedAt = System.currentTimeMillis()
+                )
+            )
+        } else {
+            requestDao.updateRequestStatus(finalRequestId, RequestStatus.SHIPPED)
+        }
 
         messageDao.insertMessage(
             MessageEntity(
@@ -544,7 +574,7 @@ class FinderKitRepository(
                 senderId = actor.id,
                 senderName = actor.fullName,
                 senderRole = actor.role.name,
-                content = "Order dispatched! Batch: ${updatedOrder.batchNumber}. Delivery: ${updatedOrder.estimatedDelivery}. Carrier: ${updatedOrder.trackingCarrier}.",
+                content = "Order dispatched! Batch: ${updatedOrder.batchNumber}. Delivery: $formattedExpectedDeliveryDate (Estimated). Carrier: ${updatedOrder.trackingCarrier}.",
                 isSystemEvent = true
             )
         )
@@ -677,21 +707,34 @@ class FinderKitRepository(
         return Result.success(msg)
     }
 
-    // --- Paystack Vercel Integration ---
-    suspend fun initializePaystackTransaction(
+    // --- Hubtel Checkout Integration ---
+    suspend fun initializeHubtelTransaction(
         email: String,
         amountInCurrency: Double
     ): Result<String> {
         return try {
-            val amountInSubunits = (amountInCurrency * 100).toLong()
-            val response = PaystackClient.apiService.initializeTransaction(
-                PaystackInitRequest(email = email, amount = amountInSubunits)
+            val taskId = "VINA-TASK-${java.util.UUID.randomUUID().toString().substring(0, 8).uppercase()}"
+            val request = com.example.data.network.HubtelPaymentRequest(
+                totalAmount = amountInCurrency,
+                description = "Payment for prelisted store items",
+                callbackUrl = "https://vina-prelist-checkout.completed/callback",
+                returnUrl = "https://vina-prelist-checkout.completed/success",
+                cancellationUrl = "https://vina-prelist-checkout.completed/cancel",
+                merchantTaskId = taskId
             )
-            if (response.isSuccessful && response.body()?.accessCode != null) {
-                Result.success(response.body()!!.accessCode!!)
+            val credentials = "${com.example.BuildConfig.HUBTEL_CLIENT_ID}:${com.example.BuildConfig.HUBTEL_CLIENT_SECRET}"
+            val base64 = android.util.Base64.encodeToString(credentials.toByteArray(), android.util.Base64.NO_WRAP)
+            val authHeader = "Basic $base64"
+            val response = com.example.data.network.HubtelClient.apiService.initiateCheckout(
+                authHeader = authHeader,
+                request = request
+            )
+            if (response.isSuccessful && response.body()?.data?.checkoutUrl != null) {
+                Result.success(response.body()!!.data!!.checkoutUrl!!)
             } else {
-                val err = response.body()?.error ?: "Failed to initialize with Paystack (${response.code()})"
-                Result.failure(Exception(err))
+                val errBody = response.errorBody()?.string() ?: ""
+                val errMsg = if (errBody.contains("message")) errBody else "Failed to initialize with Hubtel (${response.code()})"
+                Result.failure(Exception(errMsg))
             }
         } catch (e: Exception) {
             Result.failure(e)
@@ -755,6 +798,26 @@ class FinderKitRepository(
     fun getRecentAuditLogs(): Flow<List<AuditLogEntity>> = auditLogDao.getRecentAuditLogs()
     fun getAuditLogsForEntity(entityId: String): Flow<List<AuditLogEntity>> =
         auditLogDao.getAuditLogsForEntity(entityId)
+
+    suspend fun clearAuditLogs(actor: com.example.data.model.UserEntity): Result<Unit> {
+        if (actor.role != com.example.data.model.UserRole.ADMIN) {
+            return Result.failure(SecurityException("Only Administrators can clear audit logs."))
+        }
+        auditLogDao.clearAuditLogs()
+        auditLogDao.insertAuditLog(
+            AuditLogEntity(
+                entityType = "AUDIT",
+                entityId = "ALL",
+                action = "CLEAR_AUDIT_LOGS",
+                previousState = "ACTIVE",
+                newState = "CLEARED",
+                actorEmail = actor.email,
+                actorRole = actor.role.name,
+                checksum = SecurityUtils.computeChecksum("CLEAR:${actor.email}")
+            )
+        )
+        return Result.success(Unit)
+    }
 
     data class DataIntegrityReport(
         val totalUsers: Int,

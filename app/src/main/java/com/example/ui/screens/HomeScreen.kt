@@ -52,6 +52,7 @@ import com.example.ui.components.DataIntegrityCard
 import com.example.ui.components.ItemProductImage
 import com.example.ui.components.StatusBadge
 import com.example.ui.components.VinaPrelistLogo
+import com.example.ui.components.ShippingMethodBadge
 import com.example.ui.theme.BrandAmberSecondary
 import com.example.ui.theme.BrandEmeraldTertiary
 import com.example.ui.viewmodel.AppNavigationTab
@@ -404,12 +405,16 @@ fun RequestCardItem(
                         fontSize = 10.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                        contentDescription = "Details",
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(14.dp)
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        ShippingMethodBadge(method = request.shippingMethod, transitDays = request.transitDays)
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                            contentDescription = "Details",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(14.dp)
+                        )
+                    }
                 }
             }
         }

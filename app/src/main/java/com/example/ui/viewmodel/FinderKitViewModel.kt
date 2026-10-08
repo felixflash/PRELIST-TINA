@@ -45,8 +45,8 @@ data class FinderKitUiState(
     val isShipOrderDialogOpen: Boolean = false,
     val isCheckoutDialogOpen: Boolean = false,
     val selectedListingForCheckout: StoreListingEntity? = null,
-    val paystackAccessCode: String? = null,
-    val isInitializingPaystack: Boolean = false,
+    val hubtelCheckoutUrl: String? = null,
+    val isInitializingHubtel: Boolean = false,
     val snackbarMessage: String? = null,
     val isProcessing: Boolean = false
 )
@@ -198,24 +198,13 @@ class FinderKitViewModel(private val repository: FinderKitRepository) : ViewMode
     }
 
     fun openCheckoutDialog(listing: StoreListingEntity) {
-        val email = currentUser?.email ?: "customer@example.com"
         _uiState.update {
             it.copy(
                 isCheckoutDialogOpen = true,
                 selectedListingForCheckout = listing,
-                isInitializingPaystack = true,
-                paystackAccessCode = null
+                isInitializingHubtel = false,
+                hubtelCheckoutUrl = null
             )
-        }
-        viewModelScope.launch {
-            val totalAmount = listing.price * listing.quantity
-            val result = repository.initializePaystackTransaction(email, totalAmount)
-            _uiState.update {
-                it.copy(
-                    isInitializingPaystack = false,
-                    paystackAccessCode = result.getOrNull()
-                )
-            }
         }
     }
 
@@ -224,8 +213,8 @@ class FinderKitViewModel(private val repository: FinderKitRepository) : ViewMode
             it.copy(
                 isCheckoutDialogOpen = false,
                 selectedListingForCheckout = null,
-                paystackAccessCode = null,
-                isInitializingPaystack = false
+                hubtelCheckoutUrl = null,
+                isInitializingHubtel = false
             )
         }
     }
@@ -238,7 +227,9 @@ class FinderKitViewModel(private val repository: FinderKitRepository) : ViewMode
         quantity: Int = 1,
         targetBudget: Double = 0.0,
         urgency: String = "",
-        imageUrl: String = ""
+        imageUrl: String = "",
+        shippingMethod: String = com.example.data.model.ShippingConfig.AIR_METHOD,
+        transitDays: Int = com.example.data.model.ShippingConfig.AIR_DAYS
     ) {
         val user = currentUser ?: return
         _uiState.update { it.copy(isProcessing = true) }
@@ -251,7 +242,9 @@ class FinderKitViewModel(private val repository: FinderKitRepository) : ViewMode
                 quantity = quantity,
                 targetBudget = targetBudget,
                 urgency = urgency,
-                imageUrl = imageUrl
+                imageUrl = imageUrl,
+                shippingMethod = shippingMethod,
+                transitDays = transitDays
             )
             result.fold(
                 onSuccess = { req ->
@@ -466,16 +459,11 @@ class FinderKitViewModel(private val repository: FinderKitRepository) : ViewMode
         }
     }
 
-    fun processPayment(listing: StoreListingEntity, paymentMethod: String) {
+    fun processPayment(listing: StoreListingEntity, paymentMethod: String, paymentRef: String? = null) {
         val user = currentUser ?: return
         _uiState.update { it.copy(isProcessing = true) }
         viewModelScope.launch {
-            val accessCode = _uiState.value.paystackAccessCode
-            val txRef = if (!accessCode.isNullOrBlank()) {
-                "PSTK-$accessCode"
-            } else {
-                "FK-TXN-${(100000..999999).random()}-${listing.batchNumber.takeLast(4)}"
-            }
+            val txRef = paymentRef ?: "HUB-TXN-${(100000..999999).random()}-${listing.batchNumber.takeLast(4)}"
             val result = repository.processPayment(
                 requestId = listing.requestId,
                 storeListingId = listing.id,
@@ -511,7 +499,8 @@ class FinderKitViewModel(private val repository: FinderKitRepository) : ViewMode
         orderId: String,
         batchNumber: String,
         estimatedDelivery: String,
-        trackingCarrier: String
+        trackingCarrier: String,
+        shippingDate: Long
     ) {
         val user = currentUser ?: return
         _uiState.update { it.copy(isProcessing = true) }
@@ -521,6 +510,7 @@ class FinderKitViewModel(private val repository: FinderKitRepository) : ViewMode
                 batchNumber = batchNumber,
                 estimatedDelivery = estimatedDelivery,
                 trackingCarrier = trackingCarrier,
+                shippingDate = shippingDate,
                 actor = user
             )
             result.fold(
@@ -610,6 +600,16 @@ class FinderKitViewModel(private val repository: FinderKitRepository) : ViewMode
         viewModelScope.launch {
             val report = repository.verifyDataIntegrity()
             _uiState.update { it.copy(integrityReport = report) }
+        }
+    }
+
+    fun clearAuditLogs() {
+        val user = currentUser ?: return
+        viewModelScope.launch {
+            _uiState.update { it.copy(isProcessing = true) }
+            repository.clearAuditLogs(user)
+            _uiState.update { it.copy(isProcessing = false) }
+            refreshIntegrityReport()
         }
     }
 }

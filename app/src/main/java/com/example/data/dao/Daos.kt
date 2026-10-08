@@ -16,10 +16,10 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface UserDao {
-    @Insert(onConflict = OnConflictStrategy.ABORT)
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertUser(user: UserEntity)
 
-    @Query("SELECT * FROM users WHERE email = :email LIMIT 1")
+    @Query("SELECT * FROM users WHERE LOWER(email) = LOWER(:email) LIMIT 1")
     suspend fun getUserByEmail(email: String): UserEntity?
 
     @Query("SELECT * FROM users WHERE id = :id LIMIT 1")
@@ -147,4 +147,7 @@ interface AuditLogDao {
 
     @Query("SELECT COUNT(*) FROM audit_logs")
     suspend fun getAuditCount(): Int
+
+    @Query("DELETE FROM audit_logs")
+    suspend fun clearAuditLogs()
 }

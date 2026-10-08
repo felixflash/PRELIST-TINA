@@ -92,18 +92,31 @@ import com.example.data.model.RequestEntity
 import com.example.data.model.StoreListingEntity
 import com.example.ui.components.VinaPrelistLogo
 import com.example.ui.theme.BrandEmeraldTertiary
+import android.webkit.WebResourceRequest
+import android.webkit.WebView
+import android.webkit.WebViewClient
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.AnnotatedString
+import android.widget.Toast
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Phone
+import androidx.compose.material.icons.filled.Person
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NewRequestDialog(
     onDismiss: () -> Unit,
-    onSubmit: (title: String, description: String, category: String, quantity: Int, imageUrl: String) -> Unit,
+    onSubmit: (title: String, description: String, category: String, quantity: Int, imageUrl: String, shippingMethod: String, transitDays: Int) -> Unit,
     isProcessing: Boolean
 ) {
     var title by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
     var quantity by remember { mutableStateOf(1) }
     var imageUrl by remember { mutableStateOf("") }
+    var selectedShippingMethod by remember { mutableStateOf(com.example.data.model.ShippingConfig.AIR_METHOD) }
+    var selectedTransitDays by remember { mutableStateOf(com.example.data.model.ShippingConfig.AIR_DAYS) }
     var validationError by remember { mutableStateOf<String?>(null) }
     val context = androidx.compose.ui.platform.LocalContext.current
 
@@ -309,6 +322,112 @@ fun NewRequestDialog(
 
                 Spacer(modifier = Modifier.height(8.dp))
 
+                // Shipping Method Selector
+                Text(
+                    text = "Shipping Method Selection",
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    val airMethod = com.example.data.model.ShippingConfig.AIR_METHOD
+                    val seaMethod = com.example.data.model.ShippingConfig.SEA_METHOD
+                    val airDays = com.example.data.model.ShippingConfig.AIR_DAYS
+                    val seaDays = com.example.data.model.ShippingConfig.SEA_DAYS
+
+                    // Air card option
+                    Card(
+                        onClick = {
+                            selectedShippingMethod = airMethod
+                            selectedTransitDays = airDays
+                        },
+                        shape = RoundedCornerShape(10.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = if (selectedShippingMethod == airMethod) {
+                                MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
+                            } else {
+                                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
+                            }
+                        ),
+                        border = androidx.compose.foundation.BorderStroke(
+                            width = 1.dp,
+                            color = if (selectedShippingMethod == airMethod) {
+                                MaterialTheme.colorScheme.primary
+                            } else {
+                                MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)
+                            }
+                        ),
+                        modifier = Modifier.weight(1f).testTag("shipping_air_option")
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(10.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text(
+                                text = "✈ Air",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 13.sp,
+                                color = if (selectedShippingMethod == airMethod) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = "18 Days Transit",
+                                fontSize = 11.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+
+                    // Sea card option
+                    Card(
+                        onClick = {
+                            selectedShippingMethod = seaMethod
+                            selectedTransitDays = seaDays
+                        },
+                        shape = RoundedCornerShape(10.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = if (selectedShippingMethod == seaMethod) {
+                                MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
+                            } else {
+                                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
+                            }
+                        ),
+                        border = androidx.compose.foundation.BorderStroke(
+                            width = 1.dp,
+                            color = if (selectedShippingMethod == seaMethod) {
+                                MaterialTheme.colorScheme.primary
+                            } else {
+                                MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)
+                            }
+                        ),
+                        modifier = Modifier.weight(1f).testTag("shipping_sea_option")
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(10.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text(
+                                text = "🚢 Sea",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 13.sp,
+                                color = if (selectedShippingMethod == seaMethod) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = "60 Days Transit",
+                                fontSize = 11.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
                 // Item Photo Section with Device Photo Library Picker
                 Text(
                     text = "Item Reference Photo (Optional)",
@@ -423,7 +542,7 @@ fun NewRequestDialog(
                             validationError = "Please enter item specifications."
                             return@Button
                         }
-                        onSubmit(title, description, selectedCategory, quantity, imageUrl.trim())
+                        onSubmit(title, description, selectedCategory, quantity, imageUrl.trim(), selectedShippingMethod, selectedTransitDays)
                     },
                     enabled = !isProcessing,
                     shape = RoundedCornerShape(10.dp),
@@ -458,7 +577,7 @@ fun ListInStoreDialog(
     var priceStr by remember { mutableStateOf(String.format("%.2f", request.targetBudget)) }
     var quantityStr by remember { mutableStateOf(request.quantity.toString()) }
     var batchNumber by remember { mutableStateOf("FK-BATCH-${(1000..9999).random()}") }
-    var estimatedDelivery by remember { mutableStateOf("3-5 business days") }
+    val estimatedDelivery = ""
     var conditionNotes by remember { mutableStateOf("Verified Authentic / Inspected Quality") }
     var errorMsg by remember { mutableStateOf<String?>(null) }
 
@@ -623,17 +742,6 @@ fun ListInStoreDialog(
                 Spacer(modifier = Modifier.height(10.dp))
 
                 OutlinedTextField(
-                    value = estimatedDelivery,
-                    onValueChange = { estimatedDelivery = it },
-                    label = { Text("Estimated Delivery") },
-                    singleLine = true,
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                Spacer(modifier = Modifier.height(10.dp))
-
-                OutlinedTextField(
                     value = conditionNotes,
                     onValueChange = { conditionNotes = it },
                     label = { Text("Condition / Sourcing Notes") },
@@ -690,12 +798,31 @@ fun ShipOrderDialog(
     request: RequestEntity,
     batchDefault: String,
     onDismiss: () -> Unit,
-    onConfirmShipment: (batchNumber: String, estimatedDelivery: String, carrier: String) -> Unit,
+    onConfirmShipment: (batchNumber: String, estimatedDelivery: String, carrier: String, shippingDate: Long) -> Unit,
     isProcessing: Boolean
 ) {
     var batchNumber by remember { mutableStateOf(batchDefault.ifBlank { "FK-BATCH-${(1000..9999).random()}" }) }
-    var estimatedDelivery by remember { mutableStateOf("Expected in 2 business days") }
+    var shippingDateStr by remember { mutableStateOf(java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()).format(java.util.Date())) }
     var carrier by remember { mutableStateOf("DHL Express (Tracking #${(1000000000..9999999999).random()})") }
+    var parsedShippingDate by remember { mutableStateOf(System.currentTimeMillis()) }
+
+    val transitDays = request.transitDays
+    val expectedDeliveryStr = remember(shippingDateStr) {
+        try {
+            val sdf = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault())
+            sdf.isLenient = false
+            val parsedDate = sdf.parse(shippingDateStr)
+            if (parsedDate != null) {
+                parsedShippingDate = parsedDate.time
+                val expectedMs = parsedDate.time + (transitDays.toLong() * 24 * 60 * 60 * 1000)
+                java.text.SimpleDateFormat("yyyy-MM-dd (EEEE)", java.util.Locale.getDefault()).format(java.util.Date(expectedMs))
+            } else {
+                "Invalid Date"
+            }
+        } catch (e: Exception) {
+            "Invalid Format (use YYYY-MM-DD)"
+        }
+    }
 
     Dialog(
         onDismissRequest = onDismiss,
@@ -737,7 +864,7 @@ fun ShipOrderDialog(
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = "Dispatch & Mark Shipped",
+                            text = "Shipment",
                             fontWeight = FontWeight.Bold,
                             fontSize = 18.sp
                         )
@@ -769,13 +896,43 @@ fun ShipOrderDialog(
                 Spacer(modifier = Modifier.height(10.dp))
 
                 OutlinedTextField(
-                    value = estimatedDelivery,
-                    onValueChange = { estimatedDelivery = it },
-                    label = { Text("Estimated Delivery Date") },
+                    value = shippingDateStr,
+                    onValueChange = { shippingDateStr = it },
+                    label = { Text("Shipping Date (YYYY-MM-DD)") },
                     singleLine = true,
                     shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    supportingText = {
+                        Text(
+                            text = "Transit Days: $transitDays days (${request.shippingMethod.uppercase()})",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 )
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.05f)),
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Text(
+                            text = "Expected Delivery Date (Auto-calculated):",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = expectedDeliveryStr,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = if (expectedDeliveryStr.startsWith("Invalid")) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                }
 
                 Spacer(modifier = Modifier.height(10.dp))
 
@@ -791,8 +948,12 @@ fun ShipOrderDialog(
                 Spacer(modifier = Modifier.height(18.dp))
 
                 Button(
-                    onClick = { onConfirmShipment(batchNumber, estimatedDelivery, carrier) },
-                    enabled = !isProcessing,
+                    onClick = {
+                        if (!expectedDeliveryStr.startsWith("Invalid")) {
+                            onConfirmShipment(batchNumber, expectedDeliveryStr, carrier, parsedShippingDate)
+                        }
+                    },
+                    enabled = !isProcessing && !expectedDeliveryStr.startsWith("Invalid"),
                     shape = RoundedCornerShape(12.dp),
                     modifier = Modifier
                         .fillMaxWidth()
@@ -807,7 +968,7 @@ fun ShipOrderDialog(
                         )
                     } else {
                         Text(
-                            text = "Confirm Shipment & Notify Customer",
+                            text = "Confirm Shipment",
                             fontWeight = FontWeight.Bold,
                             fontSize = 14.sp,
                             textAlign = TextAlign.Center
@@ -825,16 +986,19 @@ fun CheckoutDialog(
     listing: StoreListingEntity,
     customerEmail: String,
     customerPhone: String,
-    paystackAccessCode: String? = null,
-    isInitializingPaystack: Boolean = false,
+    hubtelCheckoutUrl: String? = null,
+    isInitializingHubtel: Boolean = false,
     onDismiss: () -> Unit,
-    onPaymentSuccess: (method: String) -> Unit,
+    onPaymentSuccess: (method: String, ref: String?) -> Unit,
     isProcessing: Boolean
 ) {
-    var selectedMethod by remember { mutableStateOf("Paystack Card Payment") }
-    var cardNumber by remember { mutableStateOf("4084 •••• •••• 9102") }
+    var senderNameOrPhone by remember { mutableStateOf("") }
+    var transactionId by remember { mutableStateOf("") }
 
     val totalPrice = listing.price * listing.quantity
+
+    val context = LocalContext.current
+    val clipboardManager = LocalClipboardManager.current
 
     Dialog(
         onDismissRequest = onDismiss,
@@ -863,52 +1027,36 @@ fun CheckoutDialog(
                         .padding(20.dp)
                         .verticalScroll(rememberScrollState())
                 ) {
-                // Header with Paystack & Security badge
-                Row(
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        VinaPrelistLogo(size = 32)
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = "Vina Prelist Checkout",
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 18.sp
-                        )
-                    }
-                    IconButton(onClick = onDismiss) {
-                        Icon(Icons.Default.Close, contentDescription = "Close")
-                    }
-                }
-
-                // Live Vercel Backend Status
-                Surface(
-                    color = BrandEmeraldTertiary.copy(alpha = 0.12f),
-                    shape = RoundedCornerShape(10.dp),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 8.dp)
-                ) {
                     Row(
+                        horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                        modifier = Modifier.fillMaxWidth()
                     ) {
-                        if (isInitializingPaystack) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(14.dp),
-                                strokeWidth = 2.dp,
-                                color = BrandEmeraldTertiary
-                            )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            VinaPrelistLogo(size = 32)
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                text = "Contacting Vercel Paystack backend...",
-                                fontSize = 11.sp,
-                                color = BrandEmeraldTertiary,
-                                fontWeight = FontWeight.Medium
+                                text = "Offline MoMo Payment",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 18.sp
                             )
-                        } else if (!paystackAccessCode.isNullOrBlank()) {
+                        }
+                        IconButton(onClick = onDismiss) {
+                            Icon(Icons.Default.Close, contentDescription = "Close")
+                        }
+                    }
+
+                    Surface(
+                        color = BrandEmeraldTertiary.copy(alpha = 0.12f),
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 8.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                        ) {
                             Icon(
                                 imageVector = Icons.Default.Shield,
                                 contentDescription = null,
@@ -917,184 +1065,242 @@ fun CheckoutDialog(
                             )
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(
-                                text = "Live Paystack Access: $paystackAccessCode",
+                                text = "Direct Account Transfer (Secured)",
                                 fontSize = 11.sp,
                                 color = BrandEmeraldTertiary,
                                 fontWeight = FontWeight.Bold
                             )
-                        } else {
-                            Text(
-                                text = "Backend: https://paystack-vercel.vercel.app/api/initialize",
-                                fontSize = 10.sp,
-                                color = BrandEmeraldTertiary,
-                                fontWeight = FontWeight.Medium
-                            )
                         }
                     }
-                }
 
-                Surface(
-                    color = MaterialTheme.colorScheme.surfaceVariant,
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(modifier = Modifier.padding(14.dp)) {
-                        Text(
-                            text = listing.title,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 15.sp
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = "Batch: ${listing.batchNumber} • ${listing.estimatedDelivery}",
-                            fontSize = 12.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Row(
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
+                    Surface(
+                        color = MaterialTheme.colorScheme.surfaceVariant,
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(14.dp)) {
                             Text(
-                                text = "Unit Price × Qty:",
+                                text = listing.title,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 15.sp
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = if (listing.estimatedDelivery.isNotBlank()) "Batch: ${listing.batchNumber} • ${listing.estimatedDelivery}" else "Batch: ${listing.batchNumber}",
                                 fontSize = 12.sp,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Row(
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text(
+                                    text = "Unit Price × Qty:",
+                                    fontSize = 12.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Text(
+                                    text = "GH₵ ${String.format("%.2f", listing.price)} × ${listing.quantity} unit(s)",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Row(
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text(
+                                    text = "Total Payable Amount:",
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                                Text(
+                                    text = "GH₵ ${String.format("%.2f", totalPrice)}",
+                                    fontWeight = FontWeight.ExtraBold,
+                                    fontSize = 18.sp,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    Text(
+                        text = "Payment Instructions",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    Card(
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+                        ),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(14.dp)) {
                             Text(
-                                text = "GH₵ ${String.format("%.2f", listing.price)} × ${listing.quantity} unit(s)",
+                                text = "Please perform an offline MTN Mobile Money transfer of exactly GH₵ ${String.format("%.2f", totalPrice)} using these details:",
                                 fontSize = 12.sp,
-                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                modifier = Modifier.padding(bottom = 8.dp)
+                            )
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column {
+                                    Text(
+                                        text = "MOMO PHONE NUMBER",
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                    Text(
+                                        text = "0530473634",
+                                        fontSize = 18.sp,
+                                        fontWeight = FontWeight.ExtraBold,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                }
+                                OutlinedButton(
+                                    onClick = {
+                                        clipboardManager.setText(AnnotatedString("0530473634"))
+                                        Toast.makeText(context, "MoMo number copied to clipboard!", Toast.LENGTH_SHORT).show()
+                                    },
+                                    contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                                    shape = RoundedCornerShape(8.dp),
+                                    modifier = Modifier.height(36.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.ContentCopy,
+                                        contentDescription = "Copy phone number",
+                                        modifier = Modifier.size(14.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text("Copy", fontSize = 12.sp)
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(10.dp))
+
+                            Text(
+                                text = "ACCOUNT NAME",
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                            Text(
+                                text = "Vina SJA VENTURES\n(AUGUSTINA BREANE ADRI)",
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onSurface
                             )
                         }
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Row(
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text(
-                                text = "Total Payable Amount:",
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                            Text(
-                                text = "GH₵ ${String.format("%.2f", totalPrice)}",
-                                fontWeight = FontWeight.ExtraBold,
-                                fontSize = 18.sp,
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                        }
                     }
-                }
 
-                Spacer(modifier = Modifier.height(14.dp))
+                    Spacer(modifier = Modifier.height(14.dp))
 
-                Text(
-                    text = "Customer Account",
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Text(
-                    text = "$customerEmail • $customerPhone",
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Medium
-                )
+                    Text(
+                        text = "Verify Your Offline Payment",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
 
-                Spacer(modifier = Modifier.height(14.dp))
-
-                Text(
-                    text = "Select Payment Gateway",
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Spacer(modifier = Modifier.height(6.dp))
-
-                val methods = listOf(
-                    "Paystack Card Payment" to Icons.Default.CreditCard,
-                    "Mobile Money" to Icons.Default.QrCode,
-                    "Bank Direct Wire" to Icons.Default.Payment
-                )
-
-                methods.forEach { (name, icon) ->
-                    val isSel = selectedMethod == name
-                    Surface(
-                        color = if (isSel) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                    OutlinedTextField(
+                        value = senderNameOrPhone,
+                        onValueChange = { senderNameOrPhone = it },
+                        label = { Text("Sender MoMo Name / Phone Number") },
+                        placeholder = { Text("Name or phone money was sent from") },
+                        leadingIcon = { Icon(Icons.Default.Person, contentDescription = null, modifier = Modifier.size(18.dp)) },
+                        singleLine = true,
                         shape = RoundedCornerShape(10.dp),
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(vertical = 4.dp)
-                            .clickable { selectedMethod = name }
+                            .testTag("sender_name_input")
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    OutlinedTextField(
+                        value = transactionId,
+                        onValueChange = { transactionId = it },
+                        label = { Text("Transaction ID / Ref (Optional)") },
+                        placeholder = { Text("e.g. 28391823901") },
+                        leadingIcon = { Icon(Icons.Default.Description, contentDescription = null, modifier = Modifier.size(18.dp)) },
+                        singleLine = true,
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("transaction_id_input")
+                    )
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    val isFormValid = senderNameOrPhone.trim().length >= 3
+
+                    Button(
+                        onClick = {
+                            val constructedRef = if (transactionId.isNotBlank()) {
+                                "MoMo: ${senderNameOrPhone.trim()} (TxID: ${transactionId.trim()})"
+                            } else {
+                                "MoMo: ${senderNameOrPhone.trim()}"
+                            }
+                            onPaymentSuccess("Offline Mobile Money (MoMo)", constructedRef)
+                        },
+                        enabled = !isProcessing && isFormValid,
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = 48.dp)
+                            .testTag("pay_now_button")
                     ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)
-                        ) {
-                            Icon(
-                                imageVector = icon,
-                                contentDescription = null,
-                                tint = if (isSel) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.size(20.dp)
+                        if (isProcessing) {
+                            CircularProgressIndicator(
+                                color = MaterialTheme.colorScheme.onPrimary,
+                                modifier = Modifier.size(20.dp),
+                                strokeWidth = 2.dp
                             )
-                            Spacer(modifier = Modifier.width(10.dp))
-                            Text(
-                                text = name,
-                                fontSize = 13.sp,
-                                fontWeight = if (isSel) FontWeight.Bold else FontWeight.Normal,
-                                color = if (isSel) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
-                            )
+                        } else {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.Center,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Icon(Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(18.dp))
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "I have made payment",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 15.sp,
+                                    textAlign = TextAlign.Center
+                                )
+                            }
                         }
                     }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "🔒 Secured via Offline Cryptographic & Ledger Verification",
+                        fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.align(Alignment.CenterHorizontally)
+                    )
                 }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                Button(
-                    onClick = { onPaymentSuccess(selectedMethod) },
-                    enabled = !isProcessing,
-                    shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(min = 48.dp)
-                        .testTag("pay_now_button")
-                ) {
-                    if (isProcessing) {
-                        CircularProgressIndicator(
-                            color = MaterialTheme.colorScheme.onPrimary,
-                            modifier = Modifier.size(20.dp),
-                            strokeWidth = 2.dp
-                        )
-                    } else {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.Center,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Icon(Icons.Default.Lock, contentDescription = null, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = "Pay GH₵ ${String.format("%.2f", totalPrice)} Now",
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 15.sp,
-                                textAlign = TextAlign.Center
-                            )
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = "🔒 Secured via 256-bit SSL encryption & ACID Data Integrity ledger",
-                    fontSize = 11.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.align(Alignment.CenterHorizontally)
-                )
             }
-        }
         }
     }
 }

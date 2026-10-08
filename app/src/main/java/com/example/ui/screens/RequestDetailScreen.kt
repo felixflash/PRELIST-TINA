@@ -71,6 +71,7 @@ import com.example.data.model.UserRole
 import com.example.ui.components.ItemProductImage
 import com.example.ui.components.StatusBadge
 import com.example.ui.components.TimelineTracker
+import com.example.ui.components.ShippingMethodBadge
 import com.example.ui.screens.dialogs.ConfirmReceivedDialog
 import com.example.ui.screens.dialogs.ItemNotFoundDialog
 import com.example.ui.theme.BrandAmberSecondary
@@ -287,6 +288,63 @@ fun RequestDetailScreen(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
+
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = Icons.Default.LocalShipping,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(14.dp)
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = "Shipping:",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            ShippingMethodBadge(method = request.shippingMethod, transitDays = request.transitDays)
+                        }
+
+                        if (request.shippedAt != null && request.expectedDeliveryDate != null) {
+                            Spacer(modifier = Modifier.height(10.dp))
+                            val deliveryFormatter = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault())
+                            val expDateStr = deliveryFormatter.format(java.util.Date(request.expectedDeliveryDate))
+                            val shipDateStr = deliveryFormatter.format(java.util.Date(request.shippedAt))
+                            Card(
+                                colors = CardDefaults.cardColors(containerColor = BrandEmeraldTertiary.copy(alpha = 0.08f)),
+                                shape = RoundedCornerShape(10.dp),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Column(modifier = Modifier.padding(10.dp)) {
+                                    Text(
+                                        text = "Shipment Confirmed",
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 11.sp,
+                                        color = BrandEmeraldTertiary
+                                    )
+                                    Spacer(modifier = Modifier.height(2.dp))
+                                    Text(
+                                        text = "Shipped Date: $shipDateStr",
+                                        fontSize = 11.sp,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                    Text(
+                                        text = "Expected Delivery Date: $expDateStr",
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = BrandEmeraldTertiary
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
                 Spacer(modifier = Modifier.height(14.dp))
@@ -333,7 +391,7 @@ fun RequestDetailScreen(
 
                             Spacer(modifier = Modifier.height(6.dp))
                             Text(
-                                text = "Batch: ${listing.batchNumber} • ${listing.estimatedDelivery}",
+                                text = if (listing.estimatedDelivery.isNotBlank()) "Batch: ${listing.batchNumber} • ${listing.estimatedDelivery}" else "Batch: ${listing.batchNumber}",
                                 fontSize = 12.sp,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -423,7 +481,7 @@ fun RequestDetailScreen(
                                 fontSize = 12.sp
                             )
                             Text(
-                                text = "Batch: ${order.batchNumber} • Delivery: ${order.estimatedDelivery}",
+                                text = if (order.estimatedDelivery.isNotBlank()) "Batch: ${order.batchNumber} • Delivery: ${order.estimatedDelivery}" else "Batch: ${order.batchNumber}",
                                 fontSize = 12.sp
                             )
                             if (order.trackingCarrier.isNotBlank()) {
@@ -559,7 +617,7 @@ fun RequestDetailScreen(
                                     ) {
                                         Icon(Icons.Default.LocalShipping, contentDescription = null, modifier = Modifier.size(16.dp))
                                         Spacer(modifier = Modifier.width(8.dp))
-                                        Text("Dispatch & Mark Shipped", textAlign = TextAlign.Center, fontSize = 13.sp)
+                                        Text("Shipment", textAlign = TextAlign.Center, fontSize = 13.sp)
                                     }
                                 }
                                 RequestStatus.SHIPPED -> {

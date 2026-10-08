@@ -5,6 +5,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,6 +17,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBars
@@ -66,9 +68,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -100,11 +106,22 @@ fun AuthScreen(
     var passwordVisible by remember { mutableStateOf(false) }
     var showSmtpDialog by remember { mutableStateOf(false) }
     val scrollState = rememberScrollState()
+    val focusManager = LocalFocusManager.current
+    val keyboardController = LocalSoftwareKeyboardController.current
 
     Scaffold(
         contentWindowInsets = WindowInsets.systemBars,
         containerColor = MaterialTheme.colorScheme.background,
-        modifier = modifier.fillMaxSize()
+        modifier = modifier
+            .fillMaxSize()
+            .pointerInput(Unit) {
+                detectTapGestures(
+                    onTap = {
+                        focusManager.clearFocus()
+                        keyboardController?.hide()
+                    }
+                )
+            }
     ) { innerPadding ->
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -113,6 +130,7 @@ fun AuthScreen(
                 .padding(innerPadding)
                 .consumeWindowInsets(innerPadding)
                 .imePadding()
+                .navigationBarsPadding()
                 .verticalScroll(scrollState)
                 .padding(horizontal = 20.dp, vertical = 12.dp)
         ) {
@@ -513,6 +531,8 @@ fun AuthScreen(
                             ),
                             keyboardActions = KeyboardActions(
                                 onDone = {
+                                    focusManager.clearFocus()
+                                    keyboardController?.hide()
                                     if (state.authMode == AuthMode.VERIFY_RESET_OTP) viewModel.verifyResetOtp()
                                     else viewModel.verifyOtp()
                                 }
@@ -527,6 +547,8 @@ fun AuthScreen(
                         // Verify button
                         Button(
                             onClick = {
+                                focusManager.clearFocus()
+                                keyboardController?.hide()
                                 if (state.authMode == AuthMode.VERIFY_RESET_OTP) viewModel.verifyResetOtp()
                                 else viewModel.verifyOtp()
                             },
@@ -629,7 +651,10 @@ fun AuthScreen(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .testTag("fullname_input"),
-                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next)
+                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+                            keyboardActions = KeyboardActions(
+                                onNext = { focusManager.moveFocus(FocusDirection.Down) }
+                            )
                         )
                         Spacer(modifier = Modifier.height(12.dp))
                     }
@@ -651,7 +676,10 @@ fun AuthScreen(
                                 imeAction = if (state.authMode == AuthMode.FORGOT_PASSWORD) ImeAction.Done else ImeAction.Next
                             ),
                             keyboardActions = KeyboardActions(
+                                onNext = { focusManager.moveFocus(FocusDirection.Down) },
                                 onDone = {
+                                    focusManager.clearFocus()
+                                    keyboardController?.hide()
                                     if (state.authMode == AuthMode.FORGOT_PASSWORD) viewModel.requestPasswordResetCode()
                                 }
                             )
@@ -675,6 +703,9 @@ fun AuthScreen(
                             keyboardOptions = KeyboardOptions(
                                 keyboardType = KeyboardType.Phone,
                                 imeAction = ImeAction.Next
+                            ),
+                            keyboardActions = KeyboardActions(
+                                onNext = { focusManager.moveFocus(FocusDirection.Down) }
                             )
                         )
                     }
@@ -707,6 +738,8 @@ fun AuthScreen(
                             ),
                             keyboardActions = KeyboardActions(
                                 onDone = {
+                                    focusManager.clearFocus()
+                                    keyboardController?.hide()
                                     if (state.authMode == AuthMode.SIGN_IN) viewModel.signIn()
                                     else viewModel.signUp()
                                 }
@@ -740,7 +773,13 @@ fun AuthScreen(
                                 keyboardType = KeyboardType.Password,
                                 imeAction = ImeAction.Done
                             ),
-                            keyboardActions = KeyboardActions(onDone = { viewModel.resetPassword() })
+                            keyboardActions = KeyboardActions(
+                                onDone = {
+                                    focusManager.clearFocus()
+                                    keyboardController?.hide()
+                                    viewModel.resetPassword()
+                                }
+                            )
                         )
                     }
 
@@ -796,6 +835,8 @@ fun AuthScreen(
                     // Primary Action Button
                     Button(
                         onClick = {
+                            focusManager.clearFocus()
+                            keyboardController?.hide()
                             when (state.authMode) {
                                 AuthMode.SIGN_IN -> viewModel.signIn()
                                 AuthMode.SIGN_UP -> viewModel.signUp()
